@@ -1,0 +1,4 @@
+project_id = "kgqxfacwhjweiumptope"
+
+[functions.dynatrace-config]
+verify_jwt = false
