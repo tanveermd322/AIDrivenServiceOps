@@ -33,6 +33,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { renderPieValueLabel } from "@/lib/chart-utils";
 import {
   BookOpen,
   Sparkles,
@@ -389,6 +390,8 @@ export const KbOptimisationInsightsTab = () => {
                 paddingAngle={2}
                 stroke="hsl(var(--card))"
                 strokeWidth={2}
+                label={renderPieValueLabel}
+                labelLine={false}
                 onClick={(d: any) => d?.action && setActionFilter(d.action as Action)}
                 className="cursor-pointer"
               >

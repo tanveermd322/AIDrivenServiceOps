@@ -118,6 +118,7 @@ export function RftChangeAdvisorTab() {
   const [peerReviewed, setPeerReviewed] = useState<"yes" | "no" | "">("");
 
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [builderOpen, setBuilderOpen] = useState(false);
   const [policyFilter, setPolicyFilter] = useState<string>("all");
   const [selectedHistorical, setSelectedHistorical] = useState<HistoricalChange | null>(null);
   const [kpiDrill, setKpiDrill] = useState<null | "rft" | "score" | "history" | "policies">(null);
@@ -236,8 +237,25 @@ export function RftChangeAdvisorTab() {
         <KpiCard label="Active policies" value={kpis.enforcedPolicies} icon={BookOpen} onClick={() => setKpiDrill("policies")} />
       </section>
 
-      {/* Builder + Live assessment */}
-      <section className="grid gap-6 lg:grid-cols-3">
+      {/* Raise new change request — opens guided builder dialog */}
+      <div className="flex items-center justify-end">
+        <Button size="sm" onClick={() => setBuilderOpen(true)}>
+          <Sparkles className="h-4 w-4" /> Raise new change request
+        </Button>
+      </div>
+
+      {/* Builder + Live assessment — inside dialog */}
+      <Dialog open={builderOpen} onOpenChange={setBuilderOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" /> New change request — guided builder
+            </DialogTitle>
+            <DialogDescription>
+              Fill the form; the advisor analyses risk in real time against historical changes and active policies.
+            </DialogDescription>
+          </DialogHeader>
+          <section className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <SectionCard
             title="New change request — guided builder"
@@ -376,6 +394,8 @@ export function RftChangeAdvisorTab() {
           </div>
         </SectionCard>
       </section>
+        </DialogContent>
+      </Dialog>
 
       {/* Historical outcomes + policies */}
       <section className="grid gap-6 lg:grid-cols-2">

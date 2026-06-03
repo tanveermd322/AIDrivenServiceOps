@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchServiceNow } from "@/lib/servicenow";
 import { SectionCard } from "./SectionCard";
@@ -18,8 +18,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  AlertOctagon, FileWarning, Link2, Plus, Repeat, Sparkles, Workflow, CheckCircle2,
+  AlertOctagon, FileWarning, Link2, Plus, Repeat, Sparkles, Workflow, CheckCircle2, Info,
 } from "lucide-react";
 import { ProblemKpiDrilldownDialog, type KpiKind } from "./ProblemKpiDrilldownDialog";
 import { useTimeRange } from "@/contexts/TimeRangeContext";
@@ -117,8 +118,24 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
 
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkIncident, setLinkIncident] = useState<any | null>(null);
+  const [linkPattern, setLinkPattern] = useState<any | null>(null);
   const [linkTarget, setLinkTarget] = useState<string>("");
   const [kpiDrilldown, setKpiDrilldown] = useState<KpiKind | null>(null);
+  const [selectedPatternKey, setSelectedPatternKey] = useState<string | null>(null);
+  const [expandedProblem, setExpandedProblem] = useState<string | null>(null);
+
+  const openProblems = useMemo(
+    () => problems.filter((p) => p.state !== "Resolved" && p.state !== "Closed"),
+    [problems],
+  );
+
+  const openLinkFromPattern = (p: any) => {
+    setLinkPattern(p);
+    setLinkIncident(null);
+    const suggested = openProblems.find((pr) => pr.cmdb_ci === p.cmdb_ci && pr.category === p.category);
+    setLinkTarget(suggested?.number ?? openProblems[0]?.number ?? "");
+    setLinkOpen(true);
+  };
 
   // Build unified pattern rows by combining repeat_patterns + dynatrace_patterns
   const patterns = useMemo(() => {
@@ -238,27 +255,42 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
 
   const openLinkDialog = (incident: any) => {
     setLinkIncident(incident);
-    // Suggest matching problem by pattern
-    const match = problems.find(
+    setLinkPattern(null);
+    // Suggest matching open problem
+    const match = openProblems.find(
       (p) => p.cmdb_ci === incident.cmdb_ci && p.category === incident.category
     );
-    setLinkTarget(match?.number ?? problems[0]?.number ?? "");
+    setLinkTarget(match?.number ?? openProblems[0]?.number ?? "");
     setLinkOpen(true);
   };
 
   const submitLink = () => {
-    if (!linkIncident || !linkTarget) return;
-    setProblems((all) => all.map((p) =>
-      p.number === linkTarget && !p.linked_incidents.includes(linkIncident.number)
-        ? { ...p, linked_incidents: [...p.linked_incidents, linkIncident.number] }
-        : p
-    ));
-    toast({
-      title: "Incident linked",
-      description: `${linkIncident.number} linked to ${linkTarget}.`,
-    });
+    if (!linkTarget) return;
+    if (linkPattern) {
+      const nums: string[] = linkPattern.incident_numbers ?? [];
+      setProblems((all) => all.map((p) => {
+        if (p.number !== linkTarget) return p;
+        const merged = Array.from(new Set([...p.linked_incidents, ...nums]));
+        return { ...p, linked_incidents: merged };
+      }));
+      toast({
+        title: "Incidents linked",
+        description: `${nums.length} incident(s) from this pattern linked to ${linkTarget}.`,
+      });
+    } else if (linkIncident) {
+      setProblems((all) => all.map((p) =>
+        p.number === linkTarget && !p.linked_incidents.includes(linkIncident.number)
+          ? { ...p, linked_incidents: [...p.linked_incidents, linkIncident.number] }
+          : p
+      ));
+      toast({
+        title: "Incident linked",
+        description: `${linkIncident.number} linked to ${linkTarget}.`,
+      });
+    }
     setLinkOpen(false);
     setLinkIncident(null);
+    setLinkPattern(null);
   };
 
   const advanceState = (number: string) => {
@@ -327,11 +359,23 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-6">CI</TableHead>
                 <TableHead>Category / Signature</TableHead>
-                <TableHead className="text-right">Repeats</TableHead>
-                <TableHead className="text-right">Dynatrace</TableHead>
                 <TableHead className="text-right">Matching incidents</TableHead>
                 <TableHead>First → Last seen</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center gap-1 cursor-help">
+                        Status <Info className="h-3 w-3 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                      <p className="font-semibold mb-1">Status definitions</p>
+                      <p><b>Candidate</b> — recurring pattern (≥3 repeats or ≥3 Dynatrace alerts) with no Problem record yet; should be promoted.</p>
+                      <p className="mt-1"><b>Monitoring</b> — pattern observed but below the candidate threshold; tracked passively.</p>
+                      <p className="mt-1"><b>PRBxxxx · &lt;state&gt;</b> — a Problem ticket already exists for this pattern; shows its current ITIL lifecycle state.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TableHead>
                 <TableHead className="text-right pr-6">Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -339,49 +383,78 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
               {patterns.map((p) => {
                 const existing = problemsForPattern(p.key);
                 const isCandidate = p.repeat_count >= 3 || p.dynatrace_count >= 3;
+                const isSelected = selectedPatternKey === p.key;
                 return (
-                  <TableRow key={p.key} className="border-border/60">
+                  <TableRow
+                    key={p.key}
+                    className={`border-border/60 cursor-pointer ${isSelected ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-secondary/60"}`}
+                    onClick={() => setSelectedPatternKey(isSelected ? null : p.key)}
+                  >
                     <TableCell className="pl-6 font-mono text-xs">{p.cmdb_ci}</TableCell>
                     <TableCell>
                       <div className="text-sm text-foreground">{p.category}</div>
                       <div className="text-[11px] text-muted-foreground">{p.subcategory || p.signature}</div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {p.repeat_count > 0 ? (
-                        <Badge variant="outline" className="font-mono text-[11px]">{p.repeat_count}</Badge>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {p.dynatrace_count > 0 ? (
-                        <Badge variant="outline" className="font-mono text-[11px] border-primary/40 text-primary bg-primary/5">{p.dynatrace_count}</Badge>
-                      ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">{p.incident_count}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {p.first_seen?.split("T")[0]} → {p.last_seen?.split("T")[0]}
                     </TableCell>
                     <TableCell>
-                      {existing.length > 0 ? (
-                        <Badge variant="outline" className={`text-[11px] ${stateColors[existing[0].state]}`}>
-                          {existing[0].number} · {existing[0].state}
-                        </Badge>
-                      ) : isCandidate ? (
-                        <Badge variant="outline" className="text-[11px] border-amber-300 bg-amber-100 text-amber-700">
-                          <AlertOctagon className="h-3 w-3 mr-1" /> Candidate
-                        </Badge>
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">Monitoring</span>
-                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="cursor-help">
+                            {existing.length > 0 ? (
+                              <Badge variant="outline" className={`text-[11px] ${stateColors[existing[0].state]}`}>
+                                {existing[0].number} · {existing[0].state}
+                              </Badge>
+                            ) : isCandidate ? (
+                              <Badge variant="outline" className="text-[11px] border-amber-300 bg-amber-100 text-amber-700">
+                                <AlertOctagon className="h-3 w-3 mr-1" /> Candidate
+                              </Badge>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">Monitoring</span>
+                            )}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs text-xs leading-relaxed">
+                          {existing.length > 0 ? (
+                            <>
+                              <p className="font-semibold mb-1">Problem ticket exists</p>
+                              <p>An ITIL Problem record (<b>{existing[0].number}</b>) is already tracking this pattern, currently in <b>{existing[0].state}</b> state.</p>
+                            </>
+                          ) : isCandidate ? (
+                            <>
+                              <p className="font-semibold mb-1">Candidate</p>
+                              <p>Recurring pattern crossed the promotion threshold (≥3 repeats or ≥3 Dynatrace alerts). Recommended to promote to a Problem record.</p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="font-semibold mb-1">Monitoring</p>
+                              <p>Pattern observed but below the candidate threshold. Tracked passively — no Problem ticket needed yet.</p>
+                            </>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
-                    <TableCell className="text-right pr-6">
+                    <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
                       {existing.length > 0 ? (
                         <Button size="sm" variant="ghost" onClick={() => advanceState(existing[0].number)}>
                           <Workflow className="h-3.5 w-3.5" /> Advance
                         </Button>
                       ) : (
-                        <Button size="sm" variant={isCandidate ? "default" : "outline"} onClick={() => openCreateFromPattern(p)}>
-                          <Plus className="h-3.5 w-3.5" /> Create Problem
-                        </Button>
+                        <div className="flex justify-end gap-1.5">
+                          <Button size="sm" variant={isCandidate ? "default" : "outline"} onClick={() => openCreateFromPattern(p)}>
+                            <Plus className="h-3.5 w-3.5" /> Create Problem
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={openProblems.length === 0 || p.incident_count === 0}
+                            onClick={() => openLinkFromPattern(p)}
+                          >
+                            <Link2 className="h-3.5 w-3.5" /> Link existing
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -391,6 +464,61 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
           </Table>
         </div>
       </SectionCard>
+
+      {/* Relevant incidents for selected pattern */}
+      {selectedPatternKey && (() => {
+        const p = patterns.find((x) => x.key === selectedPatternKey);
+        if (!p) return null;
+        const matchingIncidents = ((incidents.data ?? []) as any[]).filter(
+          (i) => i.cmdb_ci === p.cmdb_ci && i.category === p.category && (!p.subcategory || i.subcategory === p.subcategory)
+        );
+        return (
+          <SectionCard
+            title={`Relevant incidents · ${p.cmdb_ci} · ${p.category}${p.subcategory ? " / " + p.subcategory : ""}`}
+            description={`${matchingIncidents.length} incident(s) match this recurring pattern. These will be auto-linked when a Problem ticket is created.`}
+            action={
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setSelectedPatternKey(null)}>Clear</Button>
+                <Button size="sm" onClick={() => openCreateFromPattern(p)}>
+                  <Plus className="h-3.5 w-3.5" /> Create Problem
+                </Button>
+              </div>
+            }
+          >
+            {matchingIncidents.length === 0 ? (
+              <div className="text-center py-6 text-sm text-muted-foreground">No incidents found in the selected window.</div>
+            ) : (
+              <div className="max-h-[360px] overflow-auto -mx-6 border-t border-border/60">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-card z-10">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="pl-6">Number</TableHead>
+                      <TableHead>Short description</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>State</TableHead>
+                      <TableHead>Group</TableHead>
+                      <TableHead className="pr-6">Opened</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {matchingIncidents.map((i: any) => (
+                      <TableRow key={i.number} className="text-sm">
+                        <TableCell className="pl-6 font-mono text-xs text-primary">{i.number}</TableCell>
+                        <TableCell className="max-w-[360px] truncate">{i.short_description}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[11px]">{i.priority}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className="text-[11px]">{i.state}</Badge></TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{i.assignment_group}</TableCell>
+                        <TableCell className="pr-6 text-xs text-muted-foreground tabular-nums">{i.opened_at?.split("T")[0]}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </SectionCard>
+        );
+      })()}
+
 
       {/* Open problems */}
       <SectionCard
@@ -418,28 +546,82 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {problems.map((p) => (
-                  <TableRow key={p.number} className="border-border/60">
-                    <TableCell className="pl-6 font-mono text-xs">{p.number}</TableCell>
-                    <TableCell className="max-w-[360px] truncate text-sm">{p.short_description}</TableCell>
-                    <TableCell><Badge variant="outline" className="text-[11px]">{p.priority}</Badge></TableCell>
-                    <TableCell><Badge variant="outline" className={`text-[11px] ${stateColors[p.state]}`}>{p.state}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{p.assignment_group}</TableCell>
-                    <TableCell className="text-right tabular-nums text-xs font-medium">{daysOpen(p.created_at)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{p.linked_incidents.length}</TableCell>
-                    <TableCell className="text-right pr-6">
-                      {p.state === "Closed" ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Done
-                        </span>
-                      ) : (
-                        <Button size="sm" variant="ghost" onClick={() => advanceState(p.number)}>
-                          <Workflow className="h-3.5 w-3.5" /> Advance
-                        </Button>
+                {problems.map((p) => {
+                  const isExpanded = expandedProblem === p.number;
+                  const linkedDetails = ((incidents.data ?? []) as any[]).filter((i) => p.linked_incidents.includes(i.number));
+                  return (
+                    <Fragment key={p.number}>
+                      <TableRow
+                        key={p.number}
+                        className="border-border/60 cursor-pointer hover:bg-secondary/60"
+                        onClick={() => setExpandedProblem(isExpanded ? null : p.number)}
+                      >
+                        <TableCell className="pl-6 font-mono text-xs">{p.number}</TableCell>
+                        <TableCell className="max-w-[360px] truncate text-sm">{p.short_description}</TableCell>
+                        <TableCell><Badge variant="outline" className="text-[11px]">{p.priority}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className={`text-[11px] ${stateColors[p.state]}`}>{p.state}</Badge></TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{p.assignment_group}</TableCell>
+                        <TableCell className="text-right tabular-nums text-xs font-medium">{daysOpen(p.created_at)}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          <Badge variant="outline" className="font-mono text-[11px]">{p.linked_incidents.length}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right pr-6" onClick={(e) => e.stopPropagation()}>
+                          {p.state === "Closed" ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600">
+                              <CheckCircle2 className="h-3.5 w-3.5" /> Done
+                            </span>
+                          ) : (
+                            <Button size="sm" variant="ghost" onClick={() => advanceState(p.number)}>
+                              <Workflow className="h-3.5 w-3.5" /> Advance
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                      {isExpanded && (
+                        <TableRow key={p.number + "-detail"} className="bg-secondary/30 hover:bg-secondary/30">
+                          <TableCell colSpan={8} className="px-6 py-4">
+                            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2">
+                              <Link2 className="h-3.5 w-3.5" />
+                              Linked incidents ({p.linked_incidents.length}) — incidents this Problem ticket was created for
+                            </div>
+                            {p.linked_incidents.length === 0 ? (
+                              <div className="text-xs text-muted-foreground py-2">No incidents linked.</div>
+                            ) : (
+                              <div className="rounded-md border border-border/60 bg-card overflow-hidden">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                      <TableHead className="pl-4">Number</TableHead>
+                                      <TableHead>Short description</TableHead>
+                                      <TableHead>Priority</TableHead>
+                                      <TableHead>State</TableHead>
+                                      <TableHead className="pr-4">Opened</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {linkedDetails.length === 0 ? (
+                                      p.linked_incidents.map((num) => (
+                                        <TableRow key={num}><TableCell className="pl-4 font-mono text-xs text-primary">{num}</TableCell><TableCell colSpan={4} className="text-xs text-muted-foreground">Details out of current window</TableCell></TableRow>
+                                      ))
+                                    ) : linkedDetails.map((i: any) => (
+                                      <TableRow key={i.number} className="text-sm">
+                                        <TableCell className="pl-4 font-mono text-xs text-primary">{i.number}</TableCell>
+                                        <TableCell className="max-w-[360px] truncate">{i.short_description}</TableCell>
+                                        <TableCell><Badge variant="outline" className="text-[11px]">{i.priority}</Badge></TableCell>
+                                        <TableCell><Badge variant="outline" className="text-[11px]">{i.state}</Badge></TableCell>
+                                        <TableCell className="pr-4 text-xs text-muted-foreground tabular-nums">{i.opened_at?.split("T")[0]}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                    </Fragment>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -543,14 +725,41 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
               <Label className="text-xs">Description</Label>
               <Textarea rows={8} className="font-mono text-xs" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             </div>
-            {activePattern && (
-              <div className="rounded-md border border-border/60 bg-secondary/40 p-3 text-xs space-y-1">
-                <div className="font-semibold text-foreground">Auto-link preview</div>
-                <div className="text-muted-foreground">
-                  {(activePattern.incident_numbers ?? []).length} incident(s) matching this pattern will be linked to the new Problem record.
+            {activePattern && (() => {
+              const nums: string[] = activePattern.incident_numbers ?? [];
+              const details = ((incidents.data ?? []) as any[]).filter((i) => nums.includes(i.number));
+              return (
+                <div className="rounded-md border border-border/60 bg-secondary/40 p-3 text-xs space-y-2">
+                  <div className="font-semibold text-foreground flex items-center gap-2">
+                    <Link2 className="h-3.5 w-3.5 text-primary" />
+                    Auto-link preview · {nums.length} incident(s) will be linked
+                  </div>
+                  {nums.length > 0 && (
+                    <div className="max-h-40 overflow-auto rounded border border-border/60 bg-card">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="pl-3 h-8">Number</TableHead>
+                            <TableHead className="h-8">Description</TableHead>
+                            <TableHead className="h-8 pr-3">Priority</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(details.length > 0 ? details : nums.map((n) => ({ number: n, short_description: "—", priority: "—" }))).map((i: any) => (
+                            <TableRow key={i.number} className="text-[11px]">
+                              <TableCell className="pl-3 font-mono text-primary py-1">{i.number}</TableCell>
+                              <TableCell className="max-w-[280px] truncate py-1">{i.short_description}</TableCell>
+                              <TableCell className="pr-3 py-1">{i.priority}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
@@ -561,29 +770,43 @@ export const ProblemManagementTab = ({ problems, setProblems }: Props) => {
         </DialogContent>
       </Dialog>
 
-      {/* Link incident dialog */}
+      {/* Link incident / pattern dialog */}
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Link2 className="h-4 w-4 text-primary" /> Link incident to Problem
+              <Link2 className="h-4 w-4 text-primary" />
+              {linkPattern ? "Link pattern incidents to Problem" : "Link incident to Problem"}
             </DialogTitle>
             <DialogDescription>
-              Link {linkIncident?.number} ({linkIncident?.cmdb_ci}) to an existing Problem record.
+              {linkPattern
+                ? `Link ${linkPattern.incident_count} matching incident(s) for ${linkPattern.cmdb_ci} · ${linkPattern.category}${linkPattern.subcategory ? " / " + linkPattern.subcategory : ""} to an existing open Problem record.`
+                : `Link ${linkIncident?.number} (${linkIncident?.cmdb_ci}) to an existing open Problem record.`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <Label className="text-xs">Problem ticket</Label>
-            <Select value={linkTarget} onValueChange={setLinkTarget}>
-              <SelectTrigger><SelectValue placeholder="Select a Problem" /></SelectTrigger>
-              <SelectContent>
-                {problems.map((p) => (
-                  <SelectItem key={p.number} value={p.number}>
-                    {p.number} — {p.short_description.slice(0, 50)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Open Problem ticket</Label>
+            {openProblems.length === 0 ? (
+              <div className="text-xs text-muted-foreground border border-dashed border-border rounded-md p-3">
+                No open Problem tickets available. Create one first.
+              </div>
+            ) : (
+              <Select value={linkTarget} onValueChange={setLinkTarget}>
+                <SelectTrigger><SelectValue placeholder="Select a Problem" /></SelectTrigger>
+                <SelectContent>
+                  {openProblems.map((p) => (
+                    <SelectItem key={p.number} value={p.number}>
+                      {p.number} · {p.state} — {p.short_description.slice(0, 50)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {linkPattern && linkPattern.incident_numbers?.length > 0 && (
+              <div className="rounded-md border border-border/60 bg-secondary/40 p-2 max-h-32 overflow-auto text-[11px] font-mono text-muted-foreground">
+                {linkPattern.incident_numbers.join(", ")}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setLinkOpen(false)}>Cancel</Button>

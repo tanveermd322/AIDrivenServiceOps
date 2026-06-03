@@ -1,0 +1,64 @@
+{
+  "_comment_top": "================================================================================================",
+  "_comment_purpose": "ServiceNow → UI schema mapping. This is the ONLY file to edit when the target Databricks/ServiceNow schema differs from the current one. The UI layer never reads source field names — it only consumes the canonical fields defined in src/lib/servicenow/types.ts. The adapter (src/lib/servicenow/adapter.ts) uses this file to translate source rows into canonical rows.",
+  "_comment_how_to_use": "1) Update `source.catalog` / `source.schema` / `source.tables` to point at the new Databricks tables. 2) Under `fieldMappings.<canonicalField>` set the source column name (or a SQL expression) that produces the canonical value. 3) Under `valueMappings` add any enum/code → label translations (e.g. ServiceNow stores priority as integer codes 1..4). 4) Re-deploy the edge function — no UI code changes required.",
+  "_comment_bottom": "================================================================================================",
+
+  "source": {
+    "_comment": "Physical location of the ServiceNow data in Databricks.",
+    "catalog": "samples",
+    "schema": "servicenow",
+    "tables": {
+      "incidents": "incidents"
+    }
+  },
+
+  "fieldMappings": {
+    "_comment": "LEFT side = canonical UI field name (do not rename). RIGHT side = source column name OR a raw SQL expression evaluated against the source table. Use a plain column name when the source already matches; use a SQL expression (e.g. \"COALESCE(short_desc, description)\") when transformation is needed.",
+    "incidents": {
+      "number":            "number",
+      "short_description": "short_description",
+      "priority":          "priority",
+      "severity":          "severity",
+      "state":             "state",
+      "category":          "category",
+      "subcategory":       "subcategory",
+      "assignment_group":  "assignment_group",
+      "assigned_to":       "assigned_to",
+      "cmdb_ci":           "cmdb_ci",
+      "source":            "source",
+      "impact":            "impact",
+      "urgency":           "urgency",
+      "opened_at":         "opened_at",
+      "resolved_at":       "resolved_at",
+      "closed_at":         "closed_at"
+    }
+  },
+
+  "valueMappings": {
+    "_comment": "Translate source enum codes to canonical UI labels. ServiceNow commonly stores priority/state/impact/urgency as integer codes. Add entries here when the target instance uses codes instead of labels. Empty object = pass-through (no translation).",
+    "priority": {
+      "_example_when_source_uses_codes": { "1": "1 - Critical", "2": "2 - High", "3": "3 - Medium", "4": "4 - Low" }
+    },
+    "state": {
+      "_example_when_source_uses_codes": { "1": "Open", "2": "In Progress", "3": "Pending", "6": "Resolved", "7": "Closed", "8": "Cancelled" }
+    },
+    "impact":  {},
+    "urgency": {},
+    "source":  {}
+  },
+
+  "filters": {
+    "_comment": "Optional WHERE-clause fragments injected into each query (e.g. tenant scoping). Leave blank for none.",
+    "incidents": ""
+  },
+
+  "computed": {
+    "_comment": "Hints used by the query builder when source column names differ. Override only if the target schema uses non-standard names for these well-known fields.",
+    "dynatraceSourceValue": "Dynatrace",
+    "criticalPriorityValue": "1 - Critical",
+    "highPriorityValue": "2 - High",
+    "openStates": ["Open", "In Progress"],
+    "resolvedState": "Resolved"
+  }
+}
