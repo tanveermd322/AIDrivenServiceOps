@@ -6,6 +6,7 @@ export interface SectionItem {
   value: string;
   label: string;
   icon: LucideIcon;
+  category?: string;
 }
 
 interface Props {
@@ -20,7 +21,7 @@ export function SectionsSidebar({ items, active, onSelect, collapsed, onToggleCo
   return (
     <aside
       className={cn(
-        "shrink-0 sticky top-4 self-start rounded-lg border border-border/60 bg-card shadow-soft transition-all",
+        "shrink-0 sticky top-24 self-start rounded-lg border border-border/60 bg-card shadow-soft transition-all",
         collapsed ? "w-14" : "w-64",
       )}
     >
@@ -41,36 +42,58 @@ export function SectionsSidebar({ items, active, onSelect, collapsed, onToggleCo
         </Button>
       </div>
       <nav className="p-2 space-y-1 max-h-[calc(100vh-8rem)] overflow-auto">
-        {items.map(({ value, label, icon: Icon }) => {
-          const isActive = active === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              title={collapsed ? label : undefined}
-              onClick={() => onSelect(value)}
-              className={cn(
-                "w-full flex items-center gap-2.5 rounded-md px-2 py-2 text-left transition-all border border-transparent",
-                "hover:bg-secondary/70",
-                isActive
-                  ? "bg-gradient-brand text-primary-foreground border-primary shadow-elegant"
-                  : "text-foreground",
-              )}
-            >
-              <div
+        {(() => {
+          const out: JSX.Element[] = [];
+          let lastCategory: string | undefined = undefined;
+          items.forEach((item) => {
+            const { value, label, icon: Icon, category } = item;
+            if (category && category !== lastCategory && !collapsed) {
+              out.push(
+                <div
+                  key={`cat-${category}`}
+                  className="px-2 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80"
+                >
+                  {category}
+                </div>,
+              );
+            }
+            if (category && category !== lastCategory && collapsed) {
+              out.push(
+                <div key={`sep-${category}`} className="my-1 border-t border-border/40" />,
+              );
+            }
+            lastCategory = category;
+            const isActive = active === value;
+            out.push(
+              <button
+                key={value}
+                type="button"
+                title={collapsed ? label : undefined}
+                onClick={() => onSelect(value)}
                 className={cn(
-                  "rounded-md p-1.5 shrink-0",
-                  isActive ? "bg-primary-foreground/15" : "bg-gradient-brand text-primary-foreground",
+                  "w-full flex items-center gap-2.5 rounded-md px-2 py-2 text-left transition-all border border-transparent",
+                  "hover:bg-secondary/70",
+                  isActive
+                    ? "bg-gradient-brand text-primary-foreground border-primary shadow-elegant"
+                    : "text-foreground",
                 )}
               >
-                <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
-              </div>
-              {!collapsed && (
-                <span className="text-[12px] font-semibold leading-tight truncate">{label}</span>
-              )}
-            </button>
-          );
-        })}
+                <div
+                  className={cn(
+                    "rounded-md p-1.5 shrink-0",
+                    isActive ? "bg-primary-foreground/15" : "bg-gradient-brand text-primary-foreground",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                </div>
+                {!collapsed && (
+                  <span className="text-[12px] font-semibold leading-tight truncate">{label}</span>
+                )}
+              </button>,
+            );
+          });
+          return out;
+        })()}
       </nav>
     </aside>
   );

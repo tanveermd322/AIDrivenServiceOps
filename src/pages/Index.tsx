@@ -65,6 +65,9 @@ import {
   Siren,
   BookOpen,
   ShieldAlert,
+  Database,
+  HardDrive,
+  Layers,
 } from "lucide-react";
 import { NetworkCmdbTab } from "@/components/dashboard/NetworkCmdbTab";
 import { ProblemManagementTab, type ProblemTicket } from "@/components/dashboard/ProblemManagementTab";
@@ -76,12 +79,14 @@ import { PcrRecommendationTab } from "@/components/dashboard/PcrRecommendationTa
 import { MimRecommendationEngineTab } from "@/components/dashboard/MimRecommendationEngineTab";
 import { KbOptimisationInsightsTab } from "@/components/dashboard/KbOptimisationInsightsTab";
 import { IncidentQualityInsightsTab } from "@/components/dashboard/IncidentQualityInsightsTab";
+import { RootCauseInsights } from "@/components/dashboard/RootCauseInsights";
 import { IncidentDetailDialog } from "@/components/dashboard/IncidentDetailDialog";
 import { ProblemInsightsDialog } from "@/components/dashboard/ProblemInsightsDialog";
 import { useTimeRange } from "@/contexts/TimeRangeContext";
 import { useAppFocus } from "@/contexts/AppFocusContext";
 import { TimeRangePicker } from "@/components/dashboard/TimeRangePicker";
 import { SectionsSidebar, type SectionItem } from "@/components/dashboard/SectionsSidebar";
+import { renderPieValueLabel } from "@/lib/chart-utils";
 
 
 const chartColors = [
@@ -175,25 +180,95 @@ const Index = () => {
   const [ciFilter, setCiFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
-  const [problems, setProblems] = useState<ProblemTicket[]>([]);
+  const [problems, setProblems] = useState<ProblemTicket[]>(() => {
+    const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString();
+    return [
+      {
+        number: "PRB0010001",
+        short_description: "Recurring payment gateway timeouts on checkout-api",
+        description: "Repeating timeout pattern observed against payments-gw during peak EU hours. RCA underway.",
+        priority: "2 - High",
+        state: "Root Cause Analysis",
+        assignment_group: "Cloud-SRE",
+        cmdb_ci: "checkout-api",
+        category: "Application",
+        pattern_key: "checkout-api|Application|timeout",
+        linked_incidents: [],
+        created_at: daysAgo(6),
+      },
+      {
+        number: "PRB0010002",
+        short_description: "Customer DB failover latency exceeds SLO",
+        description: "Failover validation slow on cust-db cluster; investigating replication lag profile.",
+        priority: "1 - Critical",
+        state: "Assess",
+        assignment_group: "Database-Admin",
+        cmdb_ci: "cust-db-primary",
+        category: "Database",
+        pattern_key: "cust-db-primary|Database|failover",
+        linked_incidents: [],
+        created_at: daysAgo(3),
+      },
+      {
+        number: "PRB0010003",
+        short_description: "Edge firewall packet drops during traffic spikes",
+        description: "Sporadic drops correlated with WAF rule evaluation under load.",
+        priority: "3 - Medium",
+        state: "Fix in Progress",
+        assignment_group: "Network-Eng",
+        cmdb_ci: "edge-fw-01",
+        category: "Network",
+        pattern_key: "edge-fw-01|Network|packet-drop",
+        linked_incidents: [],
+        created_at: daysAgo(10),
+      },
+      {
+        number: "PRB0010004",
+        short_description: "Auth service intermittent 401s post TLS rotation",
+        description: "Token validation flakiness after scheduled key rotation. Hardening rollout plan in progress.",
+        priority: "2 - High",
+        state: "New",
+        assignment_group: "App-Support",
+        cmdb_ci: "auth-svc",
+        category: "Application",
+        pattern_key: "auth-svc|Application|tls-rotation",
+        linked_incidents: [],
+        created_at: daysAgo(1),
+      },
+      {
+        number: "PRB0010005",
+        short_description: "Notification queue backlog under SMTP throttle",
+        description: "Recurring queue backlog when upstream SMTP throttles. Capacity / fallback design pending.",
+        priority: "3 - Medium",
+        state: "Assess",
+        assignment_group: "Platform-Eng",
+        cmdb_ci: "notify-worker",
+        category: "Application",
+        pattern_key: "notify-worker|Application|queue-lag",
+        linked_incidents: [],
+        created_at: daysAgo(4),
+      },
+    ];
+  });
   const [problemInsights, setProblemInsights] = useState<null | "candidates" | "open">(null);
 
   const SECTIONS: SectionItem[] = [
-    { value: "overview", label: "Overview", icon: BarChart3 },
-    { value: "network", label: "Network Visualisation", icon: Network },
-    { value: "problem", label: "Auto Problem Creation", icon: FileWarning },
-    { value: "change", label: "Change Quality Insights", icon: ClipboardList },
-    { value: "rft", label: "RFT Change Advisor", icon: Shield },
-    { value: "automation", label: "Automation Pattern Insights", icon: Bot },
-    { value: "cab", label: "CAB Dashboard Insights", icon: ShieldCheck },
-    { value: "pcr", label: "PCR Recommendation", icon: ClipboardCheck },
-    { value: "mim", label: "MIM Recommendation Engine", icon: Siren },
-    { value: "kb", label: "KB Optimisation Insights", icon: BookOpen },
-    { value: "quality", label: "Incident Quality Insights", icon: ShieldAlert },
-    { value: "incidents", label: "Incidents", icon: Activity },
-    { value: "patterns", label: "Patterns", icon: TrendingUp },
-    { value: "rootcause", label: "Root Cause", icon: Target },
+    { value: "overview", label: "Overview", icon: BarChart3, category: "Overview" },
+    { value: "patterns", label: "Patterns", icon: TrendingUp, category: "Patterns" },
+    { value: "network", label: "Network Visualisation", icon: Network, category: "Network Management" },
+    { value: "quality", label: "Incident Quality Insights", icon: ShieldAlert, category: "Incident Management" },
+    { value: "incidents", label: "Incidents", icon: Activity, category: "Incident Management" },
+    { value: "automation", label: "Automation Pattern Insights", icon: Bot, category: "Incident Management" },
+    { value: "mim", label: "MIM Recommendation Engine", icon: Siren, category: "Incident Management" },
+    { value: "rootcause", label: "Root Cause Insights", icon: Target, category: "Incident Management" },
+    { value: "problem", label: "Auto Problem Creation", icon: FileWarning, category: "Problem Management" },
+    { value: "change", label: "Change Quality Insights", icon: ClipboardList, category: "Change Management" },
+    { value: "rft", label: "RFT Change Advisor", icon: Shield, category: "Change Management" },
+    { value: "cab", label: "CAB Dashboard Insights", icon: ShieldCheck, category: "Change Management" },
+    { value: "pcr", label: "PCR Recommendation", icon: ClipboardCheck, category: "Change Management" },
+    { value: "kb", label: "KB Optimisation Insights", icon: BookOpen, category: "Knowledge Management" },
   ];
+
 
   // Problem Management metrics (lifted from tab for top-level KPIs)
   const problemMetrics = useMemo(() => {
@@ -303,8 +378,8 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-surface">
       {/* Header */}
-      <header className="border-b border-border/60 bg-gradient-brand text-primary-foreground">
-        <div className="mx-auto max-w-[1400px] px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <header className="sticky top-0 z-50 border-b border-border/60 bg-gradient-brand text-primary-foreground shadow-soft">
+        <div className="w-full px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-primary-foreground/10 flex items-center justify-center ring-1 ring-primary-foreground/20">
               <Shield className="h-5 w-5 text-primary-foreground" />
@@ -341,7 +416,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1400px] px-6 py-6">
+      <main className="w-full px-4 sm:px-6 py-6">
         <div className="flex gap-6 items-start">
           <SectionsSidebar
             items={SECTIONS}
@@ -378,6 +453,39 @@ const Index = () => {
 
           {/* ===== OVERVIEW TAB ===== */}
           <TabsContent value="overview" className="space-y-6">
+            {/* Key insights (only here, at the top) */}
+            <SectionCard title="Key Insights" description="Click any metric to drill into details">
+              <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
+                {[
+                  { label: "Total incidents", value: k?.total_incidents, icon: Activity, onClick: () => drillTo({ resetOthers: true }), active: false, accent: false },
+                  { label: "Open", value: k?.open_incidents, icon: AlertTriangle, onClick: () => drillTo({ resetOthers: true, state: "Open" }), active: stateFilter === "Open", accent: true },
+                  { label: "Resolved", value: k?.resolved, icon: CheckCircle2, onClick: () => drillTo({ resetOthers: true, state: "Resolved" }), active: stateFilter === "Resolved", accent: false },
+                  { label: "Critical", value: k?.critical_count, icon: Zap, onClick: () => drillTo({ resetOthers: true, priority: "1 - Critical" }), active: priorityFilter === "1 - Critical", accent: true },
+                  { label: "Dynatrace alerts", value: k?.dynatrace_alerts, icon: Target, onClick: () => drillTo({ resetOthers: true, source: "Dynatrace" }), active: sourceFilter === "Dynatrace", accent: false },
+                  { label: "Avg resolution (hrs)", value: k?.avg_resolution_hours, icon: Clock, onClick: () => drillTo({ resetOthers: true, state: "Resolved" }), active: false, accent: false },
+                  { label: "Problem candidates", value: problemMetrics.candidates, icon: Sparkles, onClick: () => setProblemInsights("candidates"), active: false, accent: true },
+                  { label: "Open problems", value: problemMetrics.openProblems, icon: FileWarning, onClick: () => setProblemInsights("open"), active: false, accent: false },
+                ].map(({ label, value, icon: Icon, onClick, active, accent }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={onClick}
+                    className={`group flex items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-2 text-left transition-all hover:shadow-elegant hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "ring-2 ring-primary" : ""}`}
+                  >
+                    <div className={`rounded-md p-1.5 ${accent ? "bg-gold/15 text-gold" : "bg-gradient-brand text-primary-foreground"}`}>
+                      <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+                      <p className="text-base font-bold leading-tight text-foreground">
+                        {kpis.isLoading ? "…" : typeof value === "number" ? value.toLocaleString() : value ?? "—"}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </SectionCard>
+
             {/* Trend */}
             <SectionCard title="Incident trend (last 30 days)" description="Daily incident volume with critical/high severity overlay">
               <ResponsiveContainer width="100%" height={260}>
@@ -408,6 +516,7 @@ const Index = () => {
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie data={byPriority.data ?? []} dataKey="count" nameKey="priority" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2} stroke="hsl(var(--card))" strokeWidth={2}
+                      label={renderPieValueLabel} labelLine={false}
                       onClick={(d: any) => d?.priority && drillTo({ resetOthers: true, priority: d.priority })}
                       className="cursor-pointer">
                       {(byPriority.data ?? []).map((d: any, i) => (
@@ -439,6 +548,7 @@ const Index = () => {
                 <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
                     <Pie data={byState.data ?? []} dataKey="count" nameKey="state" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={2} stroke="hsl(var(--card))" strokeWidth={2}
+                      label={renderPieValueLabel} labelLine={false}
                       onClick={(d: any) => d?.state && drillTo({ resetOthers: true, state: d.state })}
                       className="cursor-pointer">
                       {(byState.data ?? []).map((d: any, i) => (
@@ -630,194 +740,146 @@ const Index = () => {
 
           {/* ===== PATTERNS TAB ===== */}
           <TabsContent value="patterns" className="space-y-6">
-            <section className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-              {/* Dynatrace alert patterns */}
-              <SectionCard title="Dynatrace alert patterns" description="Recurring alert patterns from Dynatrace-sourced incidents" className="lg:col-span-2">
-                <div className="max-h-[400px] overflow-auto -mx-6 border-t border-border/60">
-                  <Table>
-                    <TableHeader className="sticky top-0 bg-card z-10">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="pl-6">Category</TableHead>
-                        <TableHead>Subcategory</TableHead>
-                        <TableHead>Affected CI</TableHead>
-                        <TableHead className="text-right">Occurrences</TableHead>
-                        <TableHead className="text-right">Avg duration (hrs)</TableHead>
-                        <TableHead>First seen</TableHead>
-                        <TableHead className="pr-6">Last seen</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(dynatracePatterns.data ?? []).map((d: any, i) => (
-                        <TableRow key={i} className="text-sm cursor-pointer hover:bg-secondary/60" onClick={() => drillTo({ resetOthers: true, ci: d.cmdb_ci, category: d.category, source: "Dynatrace" })}>
-                          <TableCell className="pl-6 font-medium">{d.category}</TableCell>
-                          <TableCell className="text-muted-foreground">{d.subcategory}</TableCell>
-                          <TableCell className="font-mono text-xs">{d.cmdb_ci}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant={d.occurrence_count >= 5 ? "destructive" : "secondary"} className="font-mono">
-                              {d.occurrence_count}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">{d.avg_duration_hours}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{d.first_seen?.split("T")[0]}</TableCell>
-                          <TableCell className="pr-6 text-xs text-muted-foreground">{d.last_seen?.split("T")[0]}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </SectionCard>
-            </section>
+            {(() => {
+              // Consolidated patterns: merge repeat + Dynatrace patterns by CI + category
+              const rep = (repeatPatterns.data ?? []) as any[];
+              const dyn = (dynatracePatterns.data ?? []) as any[];
+              const map = new Map<string, { cmdb_ci: string; category: string; subcategory: string; occurrences: number; first: string; latest: string; description: string }>();
+              rep.forEach((r) => {
+                const key = `${r.cmdb_ci}|${r.category}`;
+                map.set(key, {
+                  cmdb_ci: r.cmdb_ci,
+                  category: r.category,
+                  subcategory: r.subcategory ?? "—",
+                  occurrences: r.repeat_count ?? 0,
+                  first: r.first_occurrence,
+                  latest: r.latest_occurrence,
+                  description: r.short_description ?? "",
+                });
+              });
+              dyn.forEach((d) => {
+                const key = `${d.cmdb_ci}|${d.category}`;
+                const ex = map.get(key);
+                if (ex) {
+                  ex.occurrences += d.occurrence_count ?? 0;
+                  ex.subcategory = ex.subcategory && ex.subcategory !== "—" ? ex.subcategory : d.subcategory;
+                  if (!ex.first || (d.first_seen && d.first_seen < ex.first)) ex.first = d.first_seen;
+                  if (!ex.latest || (d.last_seen && d.last_seen > ex.latest)) ex.latest = d.last_seen;
+                } else {
+                  map.set(key, {
+                    cmdb_ci: d.cmdb_ci,
+                    category: d.category,
+                    subcategory: d.subcategory ?? "—",
+                    occurrences: d.occurrence_count ?? 0,
+                    first: d.first_seen,
+                    latest: d.last_seen,
+                    description: d.short_description ?? "",
+                  });
+                }
+              });
+              const consolidated = Array.from(map.values()).sort((a, b) => b.occurrences - a.occurrences);
 
-            {/* Repeat incidents */}
-            <SectionCard title="Repeat incident patterns" description="Same CI + category combinations recurring multiple times — potential chronic issues">
-              <div className="max-h-[400px] overflow-auto -mx-6 border-t border-border/60">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-card z-10">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="pl-6">Configuration Item</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Repeats</TableHead>
-                      <TableHead>First</TableHead>
-                      <TableHead className="pr-6">Latest</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(repeatPatterns.data ?? []).map((d: any, i) => (
-                      <TableRow key={i} className="text-sm cursor-pointer hover:bg-secondary/60" onClick={() => drillTo({ resetOthers: true, ci: d.cmdb_ci, category: d.category })}>
-                        <TableCell className="pl-6 font-mono text-xs font-medium">{d.cmdb_ci}</TableCell>
-                        <TableCell className="text-muted-foreground">{d.category}</TableCell>
-                        <TableCell className="max-w-[200px] truncate text-muted-foreground">{d.short_description}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant={d.repeat_count >= 4 ? "destructive" : "secondary"} className="font-mono">
-                            <RefreshCw className="h-3 w-3 mr-1" />{d.repeat_count}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{d.first_occurrence?.split("T")[0]}</TableCell>
-                        <TableCell className="pr-6 text-xs text-muted-foreground">{d.latest_occurrence?.split("T")[0]}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </SectionCard>
+              // Lineage stats — known existing automation patterns (golden paths) = 7
+              const EXISTING_AUTOMATIONS = 7;
+              const candidates = consolidated.filter((p) => p.occurrences >= 3).length;
+              const toCreate = Math.max(0, candidates - EXISTING_AUTOMATIONS);
+              const matched = Math.min(candidates, EXISTING_AUTOMATIONS);
 
-            {/* Top CIs */}
-            <SectionCard title="Most affected infrastructure" description="Configuration items with highest incident concentration">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topCis.data ?? []} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
-                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis dataKey="cmdb_ci" type="category" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} width={140} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="incident_count" name="Total" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} className="cursor-pointer"
-                    onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci })} />
-                  <Bar dataKey="critical_count" name="Critical" fill="hsl(0 72% 51%)" radius={[0, 4, 4, 0]} className="cursor-pointer"
-                    onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci, priority: "1 - Critical" })} />
-                  <Bar dataKey="dynatrace_count" name="Dynatrace" fill="hsl(var(--chart-4))" radius={[0, 4, 4, 0]} className="cursor-pointer"
-                    onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci, source: "Dynatrace" })} />
-                </BarChart>
-              </ResponsiveContainer>
-            </SectionCard>
-          </TabsContent>
-
-          {/* ===== ROOT CAUSE TAB ===== */}
-          <TabsContent value="rootcause" className="space-y-6">
-            <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 flex items-start gap-3">
-              <Target className="h-5 w-5 text-accent mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-foreground">Root Cause Analysis</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  The table below ranks infrastructure components by incident volume, Dynatrace alert correlation, severity distribution, and resolution time.
-                  High repeat count with strong Dynatrace correlation suggests systemic issues requiring infrastructure-level remediation.
-                </p>
-              </div>
-            </div>
-
-            <SectionCard
-              title="Root cause candidates"
-              description="CIs ranked by incident frequency, severity, and Dynatrace correlation"
-            >
-              <div className="max-h-[500px] overflow-auto -mx-6 border-t border-border/60">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-card z-10">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="pl-6">Rank</TableHead>
-                      <TableHead>Configuration Item</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Dynatrace</TableHead>
-                      <TableHead className="text-right">High/Crit</TableHead>
-                      <TableHead className="text-right">Categories</TableHead>
-                      <TableHead className="text-right">Avg hrs</TableHead>
-                      <TableHead>First</TableHead>
-                      <TableHead className="pr-6">Latest</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(rootCause.data ?? []).map((r: any, i) => {
-                      const riskScore = r.total_incidents + r.high_sev_count * 2 + r.dynatrace_triggered;
-                      const riskLevel = riskScore >= 15 ? "critical" : riskScore >= 8 ? "high" : "medium";
-                      return (
-                        <TableRow key={r.cmdb_ci} className="text-sm cursor-pointer hover:bg-secondary/60" onClick={() => drillTo({ resetOthers: true, ci: r.cmdb_ci })}>
-                          <TableCell className="pl-6">
-                            <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                              riskLevel === "critical" ? "bg-destructive/10 text-destructive" :
-                              riskLevel === "high" ? "bg-orange-100 text-orange-700" :
-                              "bg-amber-100 text-amber-700"
-                            }`}>
-                              {i + 1}
+              return (
+                <>
+                  {/* Pictorial lineage */}
+                  <SectionCard title="Incident pattern → Automation lineage" description="From observed incident patterns to reusable automation use cases">
+                    <div className="flex flex-col lg:flex-row items-stretch gap-3">
+                      {[
+                        { label: "Incident patterns", value: consolidated.length, hint: "consolidated CI + category", color: "bg-gradient-brand text-primary-foreground", icon: TrendingUp },
+                        { label: "Recurring candidates", value: candidates, hint: "≥3 occurrences", color: "bg-amber-100 text-amber-700 border border-amber-300", icon: RefreshCw },
+                        { label: "Matched to existing automation", value: matched, hint: `${EXISTING_AUTOMATIONS} golden paths available`, color: "bg-emerald-100 text-emerald-700 border border-emerald-300", icon: Bot },
+                        { label: "New automations to create", value: toCreate, hint: "new use cases", color: "bg-destructive/10 text-destructive border border-destructive/30", icon: Sparkles },
+                      ].map((tile, i, arr) => (
+                        <div key={tile.label} className="flex items-center gap-3 flex-1">
+                          <div className={`flex-1 rounded-lg p-4 ${tile.color}`}>
+                            <div className="flex items-center gap-2">
+                              <tile.icon className="h-4 w-4" />
+                              <p className="text-[11px] uppercase tracking-wider font-semibold">{tile.label}</p>
                             </div>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs font-semibold">{r.cmdb_ci}</TableCell>
-                          <TableCell className="text-right tabular-nums font-semibold">{r.total_incidents}</TableCell>
-                          <TableCell className="text-right">
-                            {r.dynatrace_triggered > 0 ? (
-                              <Badge variant="outline" className="text-[11px] border-chart-4/40 text-chart-4 bg-chart-4/5 font-mono">
-                                {r.dynatrace_triggered}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">0</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {r.high_sev_count > 0 ? (
-                              <Badge variant="outline" className="text-[11px] border-destructive/40 text-destructive bg-destructive/5 font-mono">
-                                {r.high_sev_count}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">0</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">{r.distinct_categories}</TableCell>
-                          <TableCell className="text-right tabular-nums text-muted-foreground">{r.avg_resolution_hours}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{r.first_incident?.split("T")[0]}</TableCell>
-                          <TableCell className="pr-6 text-xs text-muted-foreground">{r.latest_incident?.split("T")[0]}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </SectionCard>
+                            <p className="text-3xl font-bold mt-2 tabular-nums">{tile.value}</p>
+                            <p className="text-[11px] opacity-80 mt-1">{tile.hint}</p>
+                          </div>
+                          {i < arr.length - 1 && (
+                            <div className="hidden lg:flex items-center text-muted-foreground">
+                              <svg width="28" height="20" viewBox="0 0 28 20" fill="none"><path d="M0 10 L22 10 M16 4 L24 10 L16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </SectionCard>
 
-            {/* Root cause visual — top CIs by risk */}
-            <SectionCard title="Risk heatmap" description="Comparing total incidents vs high-severity vs Dynatrace-triggered per CI">
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={(rootCause.data ?? []).slice(0, 10)} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                  <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="cmdb_ci" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} angle={-20} textAnchor="end" height={60} />
-                  <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="total_incidents" name="Total" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} className="cursor-pointer"
-                    onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci })} />
-                  <Bar dataKey="high_sev_count" name="High/Critical" fill="hsl(0 72% 51%)" radius={[4, 4, 0, 0]} className="cursor-pointer"
-                    onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci, priority: "1 - Critical" })} />
-                  <Bar dataKey="dynatrace_triggered" name="Dynatrace" fill="hsl(var(--chart-4))" radius={[4, 4, 0, 0]} className="cursor-pointer"
-                    onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci, source: "Dynatrace" })} />
-                </BarChart>
-              </ResponsiveContainer>
-            </SectionCard>
+                  {/* Consolidated patterns */}
+                  <SectionCard title="Consolidated incident patterns" description="All recurring CI + category combinations — single source of truth across modules">
+                    <div className="max-h-[400px] overflow-auto -mx-6 border-t border-border/60">
+                      <Table>
+                        <TableHeader className="sticky top-0 bg-card z-10">
+                          <TableRow className="hover:bg-transparent">
+                            <TableHead className="pl-6">Configuration Item</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Subcategory</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="text-right">Occurrences</TableHead>
+                            <TableHead>First</TableHead>
+                            <TableHead className="pr-6">Latest</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {consolidated.map((d, i) => (
+                            <TableRow key={i} className="text-sm cursor-pointer hover:bg-secondary/60" onClick={() => drillTo({ resetOthers: true, ci: d.cmdb_ci, category: d.category })}>
+                              <TableCell className="pl-6 font-mono text-xs font-medium">{d.cmdb_ci}</TableCell>
+                              <TableCell className="text-muted-foreground">{d.category}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs">{d.subcategory}</TableCell>
+                              <TableCell className="max-w-[240px] truncate text-muted-foreground">{d.description}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge variant={d.occurrences >= 4 ? "destructive" : "secondary"} className="font-mono">
+                                  <RefreshCw className="h-3 w-3 mr-1" />{d.occurrences}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground">{d.first?.split("T")[0]}</TableCell>
+                              <TableCell className="pr-6 text-xs text-muted-foreground">{d.latest?.split("T")[0]}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </SectionCard>
+
+                  {/* Top CIs */}
+                  <SectionCard title="Most affected infrastructure" description="Configuration items with highest incident concentration">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={topCis.data ?? []} layout="vertical" margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+                        <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
+                        <YAxis dataKey="cmdb_ci" type="category" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} tickLine={false} axisLine={false} width={140} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Bar dataKey="incident_count" name="Total" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} className="cursor-pointer"
+                          onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci })} />
+                        <Bar dataKey="critical_count" name="Critical" fill="hsl(0 72% 51%)" radius={[0, 4, 4, 0]} className="cursor-pointer"
+                          onClick={(d: any) => d?.cmdb_ci && drillTo({ resetOthers: true, ci: d.cmdb_ci, priority: "1 - Critical" })} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </SectionCard>
+                </>
+              );
+            })()}
           </TabsContent>
+
+
+          {/* ===== ROOT CAUSE INSIGHTS TAB ===== */}
+          <TabsContent value="rootcause" className="space-y-6">
+            <RootCauseInsights
+              rootCause={(rootCause.data ?? []) as any[]}
+              drillTo={drillTo}
+            />
+          </TabsContent>
+
 
           {/* ===== NETWORK × CMDB TAB ===== */}
           <TabsContent value="network" className="space-y-6">
@@ -862,38 +924,6 @@ const Index = () => {
           <TabsContent value="quality" className="space-y-6">
             <IncidentQualityInsightsTab />
           </TabsContent>
-          {/* Compact KPIs */}
-          <SectionCard title="Key metrics" description="Click any metric to drill into details">
-            <div className="grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
-              {[
-                { label: "Total incidents", value: k?.total_incidents, icon: Activity, onClick: () => drillTo({ resetOthers: true }), active: false, accent: false },
-                { label: "Open", value: k?.open_incidents, icon: AlertTriangle, onClick: () => drillTo({ resetOthers: true, state: "Open" }), active: stateFilter === "Open", accent: true },
-                { label: "Resolved", value: k?.resolved, icon: CheckCircle2, onClick: () => drillTo({ resetOthers: true, state: "Resolved" }), active: stateFilter === "Resolved", accent: false },
-                { label: "Critical", value: k?.critical_count, icon: Zap, onClick: () => drillTo({ resetOthers: true, priority: "1 - Critical" }), active: priorityFilter === "1 - Critical", accent: true },
-                { label: "Dynatrace alerts", value: k?.dynatrace_alerts, icon: Target, onClick: () => drillTo({ resetOthers: true, source: "Dynatrace" }), active: sourceFilter === "Dynatrace", accent: false },
-                { label: "Avg resolution (hrs)", value: k?.avg_resolution_hours, icon: Clock, onClick: () => drillTo({ resetOthers: true, state: "Resolved" }), active: false, accent: false },
-                { label: "Problem candidates", value: problemMetrics.candidates, icon: Sparkles, onClick: () => setProblemInsights("candidates"), active: false, accent: true },
-                { label: "Open problems", value: problemMetrics.openProblems, icon: FileWarning, onClick: () => setProblemInsights("open"), active: false, accent: false },
-              ].map(({ label, value, icon: Icon, onClick, active, accent }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={onClick}
-                  className={`group flex items-center gap-2 rounded-md border border-border/60 bg-card px-2.5 py-2 text-left transition-all hover:shadow-elegant hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "ring-2 ring-primary" : ""}`}
-                >
-                  <div className={`rounded-md p-1.5 ${accent ? "bg-gold/15 text-gold" : "bg-gradient-brand text-primary-foreground"}`}>
-                    <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
-                    <p className="text-base font-bold leading-tight text-foreground">
-                      {kpis.isLoading ? "…" : typeof value === "number" ? value.toLocaleString() : value ?? "—"}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </SectionCard>
             </Tabs>
           </div>
         </div>

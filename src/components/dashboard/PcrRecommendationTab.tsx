@@ -35,6 +35,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { renderPieValueLabel } from "@/lib/chart-utils";
 import {
   ClipboardCheck,
   FileSearch,
@@ -376,6 +377,8 @@ export const PcrRecommendationTab = () => {
                 paddingAngle={2}
                 stroke="hsl(var(--card))"
                 strokeWidth={2}
+                label={renderPieValueLabel}
+                labelLine={false}
                 onClick={() => setKpiDrill("divergent")}
                 className="cursor-pointer"
               >
@@ -399,11 +402,7 @@ export const PcrRecommendationTab = () => {
           </div>
         </SectionCard>
 
-        <SectionCard
-          title="Divergence by application"
-          description="Applications where the engine most often suggests a status change"
-          className="lg:col-span-2"
-        >
+        <SectionCard title="Reviews per application" description="Total PCRs awaiting closure per application">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={byApplication} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
@@ -411,11 +410,19 @@ export const PcrRecommendationTab = () => {
               <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={tooltipStyle} />
               <Bar dataKey="reviews" name="Reviews" fill="hsl(var(--chart-2))" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="divergent" name="Divergent" fill="hsl(0 72% 51%)" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </SectionCard>
+
+        <SectionCard title="Recommendation confidence" description="Average engine confidence across all PCRs">
+          <div className="flex flex-col items-center justify-center h-[220px]">
+            <p className="text-6xl font-bold text-primary">{enriched.length ? Math.round(enriched.reduce((s, e) => s + e.rec.confidence, 0) / enriched.length) : 0}<span className="text-2xl text-muted-foreground">%</span></p>
+            <p className="text-xs text-muted-foreground mt-2">Average across {enriched.length} review{enriched.length === 1 ? "" : "s"}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{totals.divergent} divergent · {enriched.length - totals.divergent} aligned</p>
+          </div>
+        </SectionCard>
       </section>
+
 
       {/* PCR table */}
       <SectionCard

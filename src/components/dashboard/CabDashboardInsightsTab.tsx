@@ -38,6 +38,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { renderPieValueLabel } from "@/lib/chart-utils";
 import {
   ShieldCheck,
   Gauge,
@@ -98,14 +99,14 @@ const PIPELINE: CabChange[] = [
 
 // 8-week trend of CAB golden signals
 const GOLDEN_TREND = [
-  { week: "W-8", successRate: 86, changeFailureRate: 14, leadTimeHrs: 38, mttrHrs: 4.8, emergencyShare: 18 },
-  { week: "W-7", successRate: 88, changeFailureRate: 12, leadTimeHrs: 36, mttrHrs: 4.5, emergencyShare: 16 },
-  { week: "W-6", successRate: 87, changeFailureRate: 13, leadTimeHrs: 34, mttrHrs: 4.2, emergencyShare: 17 },
-  { week: "W-5", successRate: 89, changeFailureRate: 11, leadTimeHrs: 33, mttrHrs: 4.0, emergencyShare: 15 },
-  { week: "W-4", successRate: 90, changeFailureRate: 10, leadTimeHrs: 31, mttrHrs: 3.8, emergencyShare: 14 },
-  { week: "W-3", successRate: 91, changeFailureRate: 9, leadTimeHrs: 30, mttrHrs: 3.6, emergencyShare: 13 },
-  { week: "W-2", successRate: 92, changeFailureRate: 8, leadTimeHrs: 28, mttrHrs: 3.4, emergencyShare: 12 },
-  { week: "W-1", successRate: 93, changeFailureRate: 7, leadTimeHrs: 27, mttrHrs: 3.2, emergencyShare: 11 },
+  { week: "W-8", successRate: 86, changeFailureRate: 14, leadTimeHrs: 38, mttrHrs: 4.8, emergencyShare: 18, peerReviewPct: 78 },
+  { week: "W-7", successRate: 88, changeFailureRate: 12, leadTimeHrs: 36, mttrHrs: 4.5, emergencyShare: 16, peerReviewPct: 80 },
+  { week: "W-6", successRate: 87, changeFailureRate: 13, leadTimeHrs: 34, mttrHrs: 4.2, emergencyShare: 17, peerReviewPct: 81 },
+  { week: "W-5", successRate: 89, changeFailureRate: 11, leadTimeHrs: 33, mttrHrs: 4.0, emergencyShare: 15, peerReviewPct: 83 },
+  { week: "W-4", successRate: 90, changeFailureRate: 10, leadTimeHrs: 31, mttrHrs: 3.8, emergencyShare: 14, peerReviewPct: 84 },
+  { week: "W-3", successRate: 91, changeFailureRate: 9, leadTimeHrs: 30, mttrHrs: 3.6, emergencyShare: 13, peerReviewPct: 85 },
+  { week: "W-2", successRate: 92, changeFailureRate: 8, leadTimeHrs: 28, mttrHrs: 3.4, emergencyShare: 12, peerReviewPct: 86 },
+  { week: "W-1", successRate: 93, changeFailureRate: 7, leadTimeHrs: 27, mttrHrs: 3.2, emergencyShare: 11, peerReviewPct: 86 },
 ];
 
 // Golden signals catalogue surfaced to architects & change managers
@@ -136,6 +137,16 @@ const riskBadge = (r: CabChange["risk"]) => (
 const decisionBadge = (d: CabChange["cabDecision"]) => (
   <Badge variant="outline" className={`text-[11px] ${decisionColors[d]}`}>{d}</Badge>
 );
+
+const policyViolations = (c: CabChange): string[] => {
+  const v: string[] = [];
+  if (!c.peerReviewed) v.push("Peer review");
+  if (!c.rollbackTested) v.push("Rollback test");
+  if (c.conflicts > 0) v.push("Schedule conflict");
+  if (c.type === "Emergency") v.push("Emergency justification");
+  if (c.risk === "High" && c.windowHours < 2) v.push("Risk-window mismatch");
+  return v;
+};
 
 type KpiKey = null | "successRate" | "failureRate" | "leadTime" | "emergency" | "pending" | "conflicts";
 type SignalDrill = null | typeof GOLDEN_SIGNALS[number];
@@ -230,18 +241,20 @@ export const CabDashboardInsightsTab = () => {
       </SectionCard>
 
       {/* Interactive KPIs */}
-      <section className="grid gap-4 grid-cols-2 lg:grid-cols-6">
+      <section className="grid gap-4 grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
         <KpiCard label="Change success rate" value={`${totals.latest.successRate}%`} icon={CheckCircle2} hint="last 7 days" onClick={() => setKpiDrill("successRate")} />
         <KpiCard label="Change failure rate" value={`${totals.latest.changeFailureRate}%`} icon={AlertOctagon} accent hint="P1/P2 within 24h" onClick={() => setKpiDrill("failureRate")} />
         <KpiCard label="Lead time (hrs)" value={totals.latest.leadTimeHrs} icon={CalendarClock} hint="submit → CAB" onClick={() => setKpiDrill("leadTime")} />
         <KpiCard label="Emergency changes" value={totals.emergency} icon={Activity} accent hint="in pipeline" onClick={() => setKpiDrill("emergency")} />
+        <KpiCard label="MTTR after change" value={`${totals.latest.mttrHrs}h`} icon={Gauge} hint="change-induced incidents" onClick={() => setSelectedSignal(GOLDEN_SIGNALS.find(g => g.id === "GS-04") || null)} />
+        <KpiCard label="Peer review coverage" value={`${totals.latest.peerReviewPct}%`} icon={ShieldCheck} hint="docs signed off pre-CAB" onClick={() => setSelectedSignal(GOLDEN_SIGNALS.find(g => g.id === "GS-06") || null)} />
         <KpiCard label="Awaiting CAB" value={totals.pending} icon={ClipboardCheck} hint="pending decisions" onClick={() => setKpiDrill("pending")} />
         <KpiCard label="Schedule conflicts" value={totals.conflicts} icon={Sparkles} accent hint="CI / window clashes" onClick={() => setKpiDrill("conflicts")} />
       </section>
 
-      {/* Golden signals + pipeline health */}
+      {/* Charts row — equal sized */}
       <section className="grid gap-6 grid-cols-1 lg:grid-cols-3">
-        <SectionCard title="Pipeline health score" description="Composite of risk, peer review, rollback, conflicts" className="lg:col-span-1">
+        <SectionCard title="Pipeline health score" description="Composite of risk, peer review, rollback, conflicts">
           <ResponsiveContainer width="100%" height={220}>
             <RadialBarChart cx="50%" cy="50%" innerRadius="60%" outerRadius="100%" barSize={16} data={radialData} startAngle={90} endAngle={-270}>
               <RadialBar dataKey="value" cornerRadius={8} background={{ fill: "hsl(var(--secondary))" }} />
@@ -252,39 +265,6 @@ export const CabDashboardInsightsTab = () => {
           <p className="text-center text-xs text-muted-foreground mt-20">Click any change below to inspect signals</p>
         </SectionCard>
 
-        <SectionCard title="Golden signals trend" description="8-week trajectory — click a signal for context" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={GOLDEN_TREND} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="week" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={{ stroke: "hsl(var(--border))" }} />
-              <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey="successRate" name="Success %" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="changeFailureRate" name="Failure %" stroke="hsl(0 72% 51%)" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="emergencyShare" name="Emergency %" stroke="hsl(25 95% 53%)" strokeWidth={2} dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
-            {GOLDEN_SIGNALS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSignal(s)}
-                className="text-left rounded-lg border border-border/60 bg-secondary/40 p-2.5 hover:shadow-soft hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                  {s.name}
-                  {s.trend === "up" ? <TrendingUp className="h-3 w-3 text-emerald-600" /> : <TrendingDown className="h-3 w-3 text-emerald-600" />}
-                </p>
-                <p className="text-base font-semibold mt-0.5">{s.current}{s.id === "GS-04" ? "h" : s.id === "GS-03" ? "h" : "%"}</p>
-                <p className="text-[10px] text-muted-foreground">target {s.target}{s.id === "GS-04" || s.id === "GS-03" ? "h" : "%"}</p>
-              </button>
-            ))}
-          </div>
-        </SectionCard>
-      </section>
-
-      {/* Risk mix + by application */}
-      <section className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <SectionCard title="Risk mix in active pipeline" description="Click a slice to drill into changes">
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
@@ -299,6 +279,8 @@ export const CabDashboardInsightsTab = () => {
                 paddingAngle={2}
                 stroke="hsl(var(--card))"
                 strokeWidth={2}
+                label={renderPieValueLabel}
+                labelLine={false}
                 onClick={(d: any) => d?.risk === "High" && setKpiDrill("conflicts")}
                 className="cursor-pointer"
               >
@@ -311,7 +293,7 @@ export const CabDashboardInsightsTab = () => {
           </ResponsiveContainer>
         </SectionCard>
 
-        <SectionCard title="Pipeline by application" description="Click a bar to focus the table" className="lg:col-span-2">
+        <SectionCard title="Pipeline by application" description="Click a bar to focus the table">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={byApp} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
@@ -327,6 +309,7 @@ export const CabDashboardInsightsTab = () => {
           </ResponsiveContainer>
         </SectionCard>
       </section>
+
 
       {/* Pipeline table */}
       <SectionCard
@@ -349,11 +332,14 @@ export const CabDashboardInsightsTab = () => {
                 <TableHead>Risk</TableHead>
                 <TableHead className="text-right">Health</TableHead>
                 <TableHead>Scheduled</TableHead>
+                <TableHead>Policy non-Compliant</TableHead>
                 <TableHead>CAB</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pipeline.filter((c) => !selectedApp || c.application === selectedApp).map((c) => (
+              {pipeline.filter((c) => !selectedApp || c.application === selectedApp).map((c) => {
+                const violations = policyViolations(c);
+                return (
                 <TableRow key={c.id} className="cursor-pointer" onClick={() => setSelectedChange(c)}>
                   <TableCell>
                     <div className="font-mono text-xs">{c.id}</div>
@@ -369,9 +355,21 @@ export const CabDashboardInsightsTab = () => {
                     </span>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">{c.scheduled}</TableCell>
+                  <TableCell>
+                    {violations.length === 0 ? (
+                      <Badge variant="outline" className="text-[11px] bg-emerald-100 text-emerald-700 border-emerald-300">Compliant</Badge>
+                    ) : (
+                      <div className="flex flex-wrap gap-1 max-w-[220px]">
+                        {violations.map((v) => (
+                          <Badge key={v} variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/30">{v}</Badge>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>{decisionBadge(c.cabDecision)}</TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>

@@ -14,6 +14,7 @@ import {
   Scatter,
   ZAxis,
 } from "recharts";
+import { renderPieValueLabel } from "@/lib/chart-utils";
 import {
   Network,
   ShieldAlert,
@@ -486,6 +487,8 @@ export const NetworkCmdbTab = () => {
                 paddingAngle={2}
                 stroke="hsl(var(--card))"
                 strokeWidth={2}
+                label={renderPieValueLabel}
+                labelLine={false}
                 className="cursor-pointer"
                 onClick={(d: any) => {
                   const name = d?.name as Decision;

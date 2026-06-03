@@ -33,6 +33,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { renderPieValueLabel } from "@/lib/chart-utils";
 import {
   ShieldAlert,
   Sparkles,
@@ -665,6 +666,8 @@ export const IncidentQualityInsightsTab = () => {
                 paddingAngle={2}
                 stroke="hsl(var(--card))"
                 strokeWidth={2}
+                label={renderPieValueLabel}
+                labelLine={false}
                 onClick={(d: any) => d?.grade && setGradeFilter(d.grade as Grade)}
                 className="cursor-pointer"
               >

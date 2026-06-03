@@ -33,6 +33,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { renderPieValueLabel } from "@/lib/chart-utils";
 import {
   Siren,
   Sparkles,
@@ -50,6 +51,7 @@ import {
   CheckCircle2,
   Activity,
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const tooltipStyle = {
   backgroundColor: "hsl(var(--card))",
@@ -493,6 +495,8 @@ export const MimRecommendationEngineTab = () => {
                 paddingAngle={2}
                 stroke="hsl(var(--card))"
                 strokeWidth={2}
+                label={renderPieValueLabel}
+                labelLine={false}
                 onClick={(d: any) => d?.phase && setPhaseFilter(d.phase as MimPhase)}
                 className="cursor-pointer"
               >
@@ -602,6 +606,7 @@ export const MimRecommendationEngineTab = () => {
               <TableHead className="text-right">Duration</TableHead>
               <TableHead className="text-right">Customers</TableHead>
               <TableHead className="text-right">Artefacts</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -631,11 +636,29 @@ export const MimRecommendationEngineTab = () => {
                 <TableCell className="text-right tabular-nums text-xs">{record.durationMins}m</TableCell>
                 <TableCell className="text-right tabular-nums text-xs">{record.customersImpacted.toLocaleString()}</TableCell>
                 <TableCell className="text-right tabular-nums text-xs">{record.artefacts.length}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const report = recommendFor(record, template).report;
+                      navigator.clipboard?.writeText(report);
+                      toast({
+                        title: `Report created · ${record.id}`,
+                        description: `${template.name} drafted and copied to clipboard.`,
+                      });
+                    }}
+                  >
+                    <FileText className="h-3.5 w-3.5" /> Create report
+                  </Button>
+                </TableCell>
               </TableRow>
             ))}
             {visible.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground text-xs py-6">
+                <TableCell colSpan={9} className="text-center text-muted-foreground text-xs py-6">
                   No majors match the current filters.
                 </TableCell>
               </TableRow>
