@@ -8,63 +8,64 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 222 80% 8%;
-    --foreground: 0 0% 100%;
+    /* Nationwide-inspired palette: deep navy primary + red accent on white surfaces */
+    --background: 0 0% 100%;
+    --foreground: 217 87% 18%;
 
-    --card: 222 60% 13%;
-    --card-foreground: 0 0% 100%;
+    --card: 0 0% 100%;
+    --card-foreground: 217 87% 18%;
 
-    --popover: 222 60% 13%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 87% 18%;
 
-    --primary: 354 85% 45%;
+    --primary: 217 87% 20%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 45% 18%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 217 50% 96%;
+    --secondary-foreground: 217 87% 18%;
 
-    --muted: 222 40% 20%;
-    --muted-foreground: 220 20% 75%;
+    --muted: 217 30% 96%;
+    --muted-foreground: 217 25% 35%;
 
-    --accent: 354 85% 45%;
+    --accent: 3 79% 50%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 85% 50%;
+    --destructive: 3 79% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 222 40% 22%;
-    --input: 222 40% 22%;
-    --ring: 354 85% 45%;
+    --border: 217 30% 86%;
+    --input: 217 30% 86%;
+    --ring: 217 87% 20%;
 
     --radius: 0.75rem;
 
-    /* Brand & gradients */
-    --brand: 354 85% 45%;
-    --brand-glow: 354 90% 58%;
-    --gold: 354 85% 45%;
-    --gradient-brand: linear-gradient(135deg, hsl(354 85% 42%), hsl(354 90% 55%));
-    --gradient-surface: linear-gradient(180deg, hsl(222 80% 8%), hsl(222 70% 11%));
-    --shadow-elegant: 0 10px 30px -12px hsl(354 85% 45% / 0.35);
-    --shadow-soft: 0 1px 2px hsl(222 80% 4% / 0.4), 0 4px 12px -4px hsl(222 80% 4% / 0.35);
+    /* Brand & gradients - Nationwide navy + red */
+    --brand: 217 87% 20%;
+    --brand-glow: 217 87% 32%;
+    --gold: 3 79% 50%;
+    --gradient-brand: linear-gradient(135deg, hsl(217 87% 18%), hsl(217 87% 30%));
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(217 30% 97%));
+    --shadow-elegant: 0 10px 30px -12px hsl(217 87% 20% / 0.35);
+    --shadow-soft: 0 1px 2px hsl(217 87% 10% / 0.08), 0 4px 12px -4px hsl(217 87% 10% / 0.12);
 
-    /* Chart palette */
-    --chart-1: 354 85% 55%;
-    --chart-2: 220 70% 65%;
-    --chart-3: 38 92% 60%;
-    --chart-4: 200 70% 60%;
-    --chart-5: 160 55% 55%;
+    /* Chart palette - navy + red accents */
+    --chart-1: 217 87% 28%;
+    --chart-2: 3 79% 50%;
+    --chart-3: 217 60% 55%;
+    --chart-4: 38 92% 55%;
+    --chart-5: 160 55% 40%;
 
-    --success: 142 60% 45%;
-    --warning: 38 92% 55%;
+    --success: 142 60% 38%;
+    --warning: 38 92% 50%;
 
-    --sidebar-background: 222 70% 10%;
+    --sidebar-background: 217 87% 18%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 354 85% 45%;
+    --sidebar-primary: 3 79% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 45% 18%;
+    --sidebar-accent: 217 87% 26%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 40% 22%;
-    --sidebar-ring: 354 85% 45%;
+    --sidebar-border: 217 60% 30%;
+    --sidebar-ring: 3 79% 50%;
   }
 
   .dark {
@@ -111,7 +112,18 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    font-family: 'Source Sans 3', 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: 'Source Sans 3', 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Source Sans 3', 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 700;
+    color: inherit;
   }
 }

@@ -186,7 +186,6 @@ export const RootCauseInsights = ({ rootCause, drillTo }: Props) => {
                         <TableHead>Configuration Item</TableHead>
                         {c === "service" && <TableHead>Golden Signal</TableHead>}
                         <TableHead className="text-right">Total</TableHead>
-                        <TableHead className="text-right">Dynatrace</TableHead>
                         <TableHead className="text-right">High/Crit</TableHead>
                         <TableHead className="text-right">Avg hrs</TableHead>
                         <TableHead className="pr-6">Latest</TableHead>
@@ -195,7 +194,7 @@ export const RootCauseInsights = ({ rootCause, drillTo }: Props) => {
                     <TableBody>
                       {rows.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={c === "service" ? 8 : 7} className="text-center text-sm text-muted-foreground py-8">
+                          <TableCell colSpan={c === "service" ? 7 : 6} className="text-center text-sm text-muted-foreground py-8">
                             <div className="inline-flex items-center gap-2">
                               <Icon className="h-4 w-4 opacity-60" />
                               No {meta.label.toLowerCase()} issues in the selected window.
@@ -237,11 +236,6 @@ export const RootCauseInsights = ({ rootCause, drillTo }: Props) => {
                               </TableCell>
                             )}
                             <TableCell className="text-right tabular-nums font-semibold">{r.total_incidents}</TableCell>
-                            <TableCell className="text-right">
-                              {r.dynatrace_triggered > 0 ? (
-                                <Badge variant="outline" className="text-[11px] border-chart-4/40 text-chart-4 bg-chart-4/5 font-mono">{r.dynatrace_triggered}</Badge>
-                              ) : <span className="text-muted-foreground">0</span>}
-                            </TableCell>
                             <TableCell className="text-right">
                               {r.high_sev_count > 0 ? (
                                 <Badge variant="outline" className="text-[11px] border-destructive/40 text-destructive bg-destructive/5 font-mono">{r.high_sev_count}</Badge>

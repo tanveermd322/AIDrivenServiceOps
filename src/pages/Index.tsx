@@ -80,6 +80,7 @@ import { MimRecommendationEngineTab } from "@/components/dashboard/MimRecommenda
 import { KbOptimisationInsightsTab } from "@/components/dashboard/KbOptimisationInsightsTab";
 import { IncidentQualityInsightsTab } from "@/components/dashboard/IncidentQualityInsightsTab";
 import { RootCauseInsights } from "@/components/dashboard/RootCauseInsights";
+import { MttdInsightsTab } from "@/components/dashboard/MttdInsightsTab";
 import { IncidentDetailDialog } from "@/components/dashboard/IncidentDetailDialog";
 import { ProblemInsightsDialog } from "@/components/dashboard/ProblemInsightsDialog";
 import { useTimeRange } from "@/contexts/TimeRangeContext";
@@ -258,6 +259,7 @@ const Index = () => {
     { value: "network", label: "Network Visualisation", icon: Network, category: "Network Management" },
     { value: "quality", label: "Incident Quality Insights", icon: ShieldAlert, category: "Incident Management" },
     { value: "incidents", label: "Incidents", icon: Activity, category: "Incident Management" },
+    { value: "mttd", label: "MTTD Insights (P1/P2)", icon: Clock, category: "Incident Management" },
     { value: "automation", label: "Automation Pattern Insights", icon: Bot, category: "Incident Management" },
     { value: "mim", label: "MIM Recommendation Engine", icon: Siren, category: "Incident Management" },
     { value: "rootcause", label: "Root Cause Insights", icon: Target, category: "Incident Management" },
@@ -919,6 +921,10 @@ const Index = () => {
 
           <TabsContent value="kb" className="space-y-6">
             <KbOptimisationInsightsTab />
+          </TabsContent>
+
+          <TabsContent value="mttd" className="space-y-6">
+            <MttdInsightsTab />
           </TabsContent>
 
           <TabsContent value="quality" className="space-y-6">

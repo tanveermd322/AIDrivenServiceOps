@@ -296,7 +296,6 @@ export const ProblemInsightsDialog = ({ open, onOpenChange, mode, problems, setP
                   <TableHead className="pl-4">CI</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Repeats</TableHead>
-                  <TableHead className="text-right">Dynatrace</TableHead>
                   <TableHead className="text-right">Incidents</TableHead>
                   <TableHead>Last seen</TableHead>
                   <TableHead className="text-right pr-4">Action</TableHead>
@@ -304,7 +303,7 @@ export const ProblemInsightsDialog = ({ open, onOpenChange, mode, problems, setP
               </TableHeader>
               <TableBody>
                 {candidatePatterns.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-sm text-muted-foreground py-6">No candidate patterns detected.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-sm text-muted-foreground py-6">No candidate patterns detected.</TableCell></TableRow>
                 ) : candidatePatterns.map((p) => {
                   const existing = problems.find((pr) => pr.pattern_key === p.key);
                   return (
@@ -312,7 +311,6 @@ export const ProblemInsightsDialog = ({ open, onOpenChange, mode, problems, setP
                       <TableCell className="pl-4 font-mono text-xs">{p.cmdb_ci}</TableCell>
                       <TableCell className="text-sm">{p.category} <span className="text-muted-foreground text-[11px]">{p.subcategory}</span></TableCell>
                       <TableCell className="text-right tabular-nums">{p.repeat_count || "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{p.dynatrace_count || "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{p.incident_count}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{p.last_seen?.split("T")[0]}</TableCell>
                       <TableCell className="text-right pr-4">

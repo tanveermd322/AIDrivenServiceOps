@@ -171,7 +171,6 @@ export const ProblemKpiDrilldownDialog = ({ kind, onOpenChange, patterns, proble
                     <TableHead className="pl-4">CI</TableHead>
                     <TableHead>Category / Signature</TableHead>
                     <TableHead className="text-right">Repeats</TableHead>
-                    <TableHead className="text-right">Dynatrace</TableHead>
                     <TableHead className="text-right">Incidents</TableHead>
                     <TableHead>First → Last seen</TableHead>
                   </TableRow>
@@ -185,7 +184,6 @@ export const ProblemKpiDrilldownDialog = ({ kind, onOpenChange, patterns, proble
                         <div className="text-[11px] text-muted-foreground">{p.subcategory || p.signature}</div>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{p.repeat_count || "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{p.dynatrace_count || "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{p.incident_count}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {p.first_seen?.split("T")[0]} → {p.last_seen?.split("T")[0]}
